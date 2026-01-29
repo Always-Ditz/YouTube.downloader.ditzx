@@ -1,0 +1,16 @@
+{
+  "name": "youtube-downloader",
+  "version": "1.0.0",
+  "description": "YouTube Video Downloader",
+  "type": "module",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  },
+  "dependencies": {
+    "@vreden/youtube_scraper": "^1.0.0"
+  },
+  "devDependencies": {
+    "vercel": "^33.0.0"
+  }
+}
