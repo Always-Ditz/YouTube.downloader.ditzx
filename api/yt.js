@@ -1,5 +1,37 @@
 import yt from '@vreden/youtube_scraper';
 
+// Helper function untuk download via external API
+async function downloadWithExternalAPI(type, url) {
+  const apiType = type === 'audio' ? 'audio' : 'merge';
+  
+  let attempts = 0;
+  const maxAttempts = 30; // Maksimal 30 attempts (60 detik)
+  
+  while (attempts < maxAttempts) {
+    try {
+      const res = await fetch(`https://youtubedl.siputzx.my.id/download?type=${apiType}&url=${url}`, {
+        headers: { "Accept": "application/json, text/plain, */*" }
+      });
+      
+      const data = await res.json();
+      
+      if (data.status === "completed") {
+        return "https://youtubedl.siputzx.my.id" + data.fileUrl;
+      }
+      
+      // Wait 2 seconds before retry
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      attempts++;
+      
+    } catch (error) {
+      console.error('Download API error:', error);
+      throw new Error('Failed to download from external API');
+    }
+  }
+  
+  throw new Error('Download timeout - exceeded maximum attempts');
+}
+
 export default async function handler(req, res) {
   // Set CORS headers
   res.setHeader('Access-Control-Allow-Credentials', true);
@@ -44,104 +76,96 @@ export default async function handler(req, res) {
       });
     }
 
-    let result;
+    console.log(`Processing request - Type: ${type}, URL: ${url}, Quality: ${quality}`);
 
-    // Process based on type
-    if (type === 'audio' || type === 'mp3') {
-      // Download Audio MP3
-      const audioQuality = quality || 128;
-      console.log(`Downloading audio: ${url} with quality ${audioQuality}kbps`);
-      
-      try {
-        result = await yt.ytmp3(url, audioQuality);
-      } catch (primaryError) {
-        console.log('Primary API failed, trying alternative API...');
-        try {
-          result = await yt.apimp3(url, audioQuality);
-        } catch (altError) {
-          throw new Error('Both primary and alternative API failed for audio download');
-        }
-      }
-      
-      // Check if result is valid for download
-      if (!result || !result.status || (result.download && result.download.status === false)) {
-        return res.status(500).json({
-          success: false,
-          error: 'Failed to process audio download',
-          details: result
-        });
-      }
-      
-    } else if (type === 'video' || type === 'mp4') {
-      // Download Video MP4
-      const videoQuality = quality || 720;
-      console.log(`Downloading video: ${url} with quality ${videoQuality}p`);
-      
-      try {
-        result = await yt.ytmp4(url, videoQuality);
-      } catch (primaryError) {
-        console.log('Primary API failed, trying alternative API...');
-        try {
-          result = await yt.apimp4(url, videoQuality);
-        } catch (altError) {
-          throw new Error('Both primary and alternative API failed for video download');
-        }
-      }
-      
-      // Check if result is valid for download
-      if (!result || !result.status || (result.download && result.download.status === false)) {
-        return res.status(500).json({
-          success: false,
-          error: 'Failed to process video download',
-          details: result
-        });
-      }
-      
-    } else if (type === 'metadata') {
-      // Get metadata only
-      console.log(`Fetching metadata: ${url}`);
-      
-      result = await yt.metadata(url);
-      
-      // Metadata response doesn't have status field, check if we got valid data
-      if (!result || !result.id || !result.title) {
-        return res.status(500).json({
-          success: false,
-          error: 'Failed to fetch video metadata',
-          details: result
-        });
-      }
-      
-    } else {
-      // Default to video if type not specified
-      const videoQuality = quality || 720;
-      console.log(`Downloading video (default): ${url} with quality ${videoQuality}p`);
-      
-      try {
-        result = await yt.ytmp4(url, videoQuality);
-      } catch (primaryError) {
-        console.log('Primary API failed, trying alternative API...');
-        try {
-          result = await yt.apimp4(url, videoQuality);
-        } catch (altError) {
-          throw new Error('Both primary and alternative API failed for video download');
-        }
-      }
-      
-      // Check if result is valid for download
-      if (!result || !result.status || (result.download && result.download.status === false)) {
-        return res.status(500).json({
-          success: false,
-          error: 'Failed to process video download',
-          details: result
-        });
-      }
+    // STEP 1: Get metadata using @vreden/youtube_scraper
+    let metadata;
+    try {
+      metadata = await yt.metadata(url);
+      console.log('Metadata fetched successfully');
+    } catch (metaError) {
+      console.error('Metadata fetch failed:', metaError);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to fetch video metadata',
+        message: metaError.message
+      });
     }
 
-    // Return successful response
+    // If only metadata is requested
+    if (type === 'metadata') {
+      return res.status(200).json({
+        success: true,
+        data: {
+          status: true,
+          metadata: {
+            type: 'video',
+            videoId: metadata.id,
+            url: metadata.url,
+            title: metadata.title,
+            description: metadata.description,
+            thumbnail: metadata.thumbnail,
+            image: metadata.image,
+            duration: metadata.duration,
+            views: metadata.views,
+            ago: metadata.ago,
+            author: metadata.author
+          }
+        }
+      });
+    }
+
+    // STEP 2: Download using external API
+    let downloadUrl;
+    try {
+      if (type === 'audio' || type === 'mp3') {
+        console.log('Downloading audio via external API...');
+        downloadUrl = await downloadWithExternalAPI('audio', url);
+      } else {
+        // Default to video
+        console.log('Downloading video via external API...');
+        downloadUrl = await downloadWithExternalAPI('video', url);
+      }
+      
+      console.log('Download completed:', downloadUrl);
+      
+    } catch (downloadError) {
+      console.error('Download failed:', downloadError);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to download video/audio',
+        message: downloadError.message,
+        details: {
+          metadata: metadata // Still return metadata even if download fails
+        }
+      });
+    }
+
+    // Return successful response with metadata + download URL
     return res.status(200).json({
       success: true,
-      data: result
+      data: {
+        status: true,
+        creator: '@vreden/youtube_scraper + youtubedl.siputzx.my.id',
+        metadata: {
+          type: type === 'audio' ? 'audio' : 'video',
+          videoId: metadata.id,
+          url: metadata.url,
+          title: metadata.title,
+          description: metadata.description,
+          thumbnail: metadata.thumbnail,
+          image: metadata.image,
+          duration: metadata.duration,
+          views: metadata.views,
+          ago: metadata.ago,
+          author: metadata.author
+        },
+        download: {
+          status: true,
+          url: downloadUrl,
+          message: 'Download ready'
+        }
+      }
     });
 
   } catch (error) {
@@ -154,4 +178,4 @@ export default async function handler(req, res) {
       details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
-                                        }
+    }
