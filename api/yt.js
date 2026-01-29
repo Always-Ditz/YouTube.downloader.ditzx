@@ -54,6 +54,15 @@ export default async function handler(req, res) {
       
       result = await yt.ytmp3(url, audioQuality);
       
+      // Check if result is valid for download
+      if (!result || !result.status) {
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to process YouTube video',
+          details: result
+        });
+      }
+      
     } else if (type === 'video' || type === 'mp4') {
       // Download Video MP4
       const videoQuality = quality || 720;
@@ -61,11 +70,29 @@ export default async function handler(req, res) {
       
       result = await yt.ytmp4(url, videoQuality);
       
+      // Check if result is valid for download
+      if (!result || !result.status) {
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to process YouTube video',
+          details: result
+        });
+      }
+      
     } else if (type === 'metadata') {
       // Get metadata only
       console.log(`Fetching metadata: ${url}`);
       
       result = await yt.metadata(url);
+      
+      // Metadata response doesn't have status field, check if we got valid data
+      if (!result || !result.id || !result.title) {
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to fetch video metadata',
+          details: result
+        });
+      }
       
     } else {
       // Default to video if type not specified
@@ -73,15 +100,15 @@ export default async function handler(req, res) {
       console.log(`Downloading video (default): ${url} with quality ${videoQuality}p`);
       
       result = await yt.ytmp4(url, videoQuality);
-    }
-
-    // Check if result is valid
-    if (!result || !result.status) {
-      return res.status(500).json({
-        success: false,
-        error: 'Failed to process YouTube video',
-        details: result
-      });
+      
+      // Check if result is valid for download
+      if (!result || !result.status) {
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to process YouTube video',
+          details: result
+        });
+      }
     }
 
     // Return successful response
@@ -100,4 +127,4 @@ export default async function handler(req, res) {
       details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
-}
+        }
