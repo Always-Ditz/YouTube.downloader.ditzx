@@ -82,7 +82,7 @@ export default async function handler(req, res) {
     let metadata;
     try {
       metadata = await yt.metadata(url);
-      console.log('Metadata fetched successfully');
+      console.log('Metadata fetched successfully:', metadata);
     } catch (metaError) {
       console.error('Metadata fetch failed:', metaError);
       return res.status(500).json({
@@ -92,26 +92,11 @@ export default async function handler(req, res) {
       });
     }
 
-    // If only metadata is requested
+    // If only metadata is requested - FIXED: Return flat structure
     if (type === 'metadata') {
       return res.status(200).json({
         success: true,
-        data: {
-          status: true,
-          metadata: {
-            type: 'video',
-            videoId: metadata.id,
-            url: metadata.url,
-            title: metadata.title,
-            description: metadata.description,
-            thumbnail: metadata.thumbnail,
-            image: metadata.image,
-            duration: metadata.duration,
-            views: metadata.views,
-            ago: metadata.ago,
-            author: metadata.author
-          }
-        }
+        data: metadata  // ← Flat structure, langsung return metadata dari library
       });
     }
 
@@ -142,28 +127,16 @@ export default async function handler(req, res) {
     }
 
     // Return successful response with metadata + download URL
+    // FIXED: Flatten the response structure
     return res.status(200).json({
       success: true,
       data: {
-        status: true,
-        creator: '@vreden/youtube_scraper + youtubedl.siputzx.my.id',
-        metadata: {
-          type: type === 'audio' ? 'audio' : 'video',
-          videoId: metadata.id,
-          url: metadata.url,
-          title: metadata.title,
-          description: metadata.description,
-          thumbnail: metadata.thumbnail,
-          image: metadata.image,
-          duration: metadata.duration,
-          views: metadata.views,
-          ago: metadata.ago,
-          author: metadata.author
-        },
+        ...metadata,  // Spread all metadata properties (title, author, duration, views, etc)
         download: {
           status: true,
           url: downloadUrl,
-          message: 'Download ready'
+          message: 'Download ready',
+          type: type === 'audio' ? 'audio' : 'video'
         }
       }
     });
@@ -178,4 +151,4 @@ export default async function handler(req, res) {
       details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
-    }
+}
