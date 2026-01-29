@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Downloader</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1c1c1c;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            overflow-x: hidden;
+            opacity: 0;
+            animation: fadeIn 0.8s ease-in-out forwards;
+        }
+
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+            }
+        }
+
+        /* Grid Background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            background: rgba(40, 40, 40, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            width: 90%;
+            max-width: 700px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transform: translateY(20px);
+            animation: slideUp 0.6s ease-out 0.2s forwards;
+        }
+
+        @keyframes slideUp {
+            to {
+                transform: translateY(0);
+            }
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .youtube-icon {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 20px;
+            filter: brightness(0) invert(1);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.05);
+            }
+        }
+
+        h1 {
+            color: #ffffff;
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #b0b0b0;
+            font-size: 0.95em;
+        }
+
+        /* Tab Switching */
+        .tab-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 5px;
+            border-radius: 12px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 12px;
+            background: transparent;
+            border: none;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .tab-btn:hover {
+            color: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .tab-btn.active {
+            background: #ffffff;
+            color: #1c1c1c;
+        }
+
+        .input-group {
+            margin: 20px 0;
+        }
+
+        label {
+            display: block;
+            color: #ffffff;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 15px;
+            padding-right: 50px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            color: #ffffff;
+            font-size: 1em;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #ff0000;
+            background: rgba(255, 255, 255, 0.08);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 0, 0, 0.2);
+        }
+
+        input[type="text"]::placeholder {
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        .search-btn {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #ffffff;
+            border: none;
+            width: 38px;
+            height: 38px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .search-btn:hover {
+            transform: translateY(-50%) scale(1.05);
+            box-shadow: 0 4px 12px rgba(255, 255, 255, 0.3);
+        }
+
+        .search-btn svg {
+            width: 18px;
+            height: 18px;
+            fill: #1c1c1c;
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .action-btn {
+            flex: 1;
+            padding: 14px;
+            background: #ffffff;
+            color: #1c1c1c;
+            border: none;
+            border-radius: 10px;
+            font-size: 1em;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .action-btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.1);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .action-btn:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .action-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(255, 255, 255, 0.3);
+        }
+
+        .action-btn:active {
+            transform: translateY(-1px);
+        }
+
+        .action-btn span {
+            position: relative;
+            z-index: 1;
+        }
+
+        .action-btn svg {
+            position: relative;
+            z-index: 1;
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
+        }
+
+        .action-btn.hidden {
+            display: none;
+        }
+
+        /* Search Results */
+        .search-results {
+            display: none;
+            margin-top: 20px;
+            animation: fadeIn 0.4s ease-in;
+        }
+
+        .search-results.show {
+            display: block;
+        }
+
+        .results-header {
+            color: #ffffff;
+            font-size: 1em;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .results-count {
+            color: #b0b0b0;
+            font-weight: normal;
+        }
+
+        .results-grid {
+            display: grid;
+            gap: 15px;
+            max-height: 500px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+
+        .results-grid::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .results-grid::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+
+        .results-grid::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+        }
+
+        .results-grid::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .search-result-item {
+            display: flex;
+            gap: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .search-result-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .result-thumbnail {
+            width: 160px;
+            height: 90px;
+            border-radius: 8px;
+            object-fit: cover;
+            flex-shrink: 0;
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .result-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-width: 0;
+        }
+
+        .result-title {
+            color: #ffffff;
+            font-size: 0.95em;
+            font-weight: 600;
+            line-height: 1.3;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .result-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            font-size: 0.8em;
+            color: #b0b0b0;
+        }
+
+        .result-meta span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .result-duration {
+            background: rgba(0, 0, 0, 0.8);
+            color: #ffffff;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.75em;
+            font-weight: 600;
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+        }
+
+        .result-thumbnail-wrapper {
+            position: relative;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            color: #ffffff;
+            margin-top: 20px;
+        }
+
+        .loading.show {
+            display: block;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top: 3px solid #ff0000;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            display: none;
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(255, 0, 0, 0.1);
+            border: 1px solid rgba(255, 0, 0, 0.3);
+            border-radius: 8px;
+            color: #ff6b6b;
+            animation: shake 0.5s;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+
+        .error.show {
+            display: block;
+        }
+
+        /* Video Preview Card */
+        .video-preview {
+            display: none;
+            margin-top: 30px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            animation: slideUp 0.4s ease-out;
+        }
+
+        .video-preview.show {
+            display: block;
+        }
+
+        .video-thumbnail {
+            width: 100%;
+            height: 250px;
+            object-fit: cover;
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .video-details {
+            padding: 20px;
+        }
+
+        .video-title {
+            color: #ffffff;
+            font-size: 1.2em;
+            font-weight: 600;
+            margin-bottom: 15px;
+            line-height: 1.4;
+        }
+
+        .video-meta {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #b0b0b0;
+            font-size: 0.9em;
+        }
+
+        .meta-icon {
+            width: 16px;
+            height: 16px;
+            opacity: 0.7;
+        }
+
+        /* Download Options */
+        .download-section {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .section-title {
+            color: #ffffff;
+            font-size: 1em;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+
+        .quality-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .quality-btn {
+            padding: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            color: #ffffff;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-size: 0.9em;
+            font-weight: 500;
+            text-align: center;
+        }
+
+        .quality-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .quality-btn.active {
+            background: #ffffff;
+            border-color: #ffffff;
+            color: #1c1c1c;
+            font-weight: 600;
+        }
+
+        .quality-btn.disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        .btn-download {
+            width: 100%;
+            padding: 16px;
+            background: #ffffff;
+            color: #1c1c1c;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            margin-top: 15px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-download::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.1);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .btn-download:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .btn-download:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-download:active {
+            transform: translateY(-1px);
+        }
+
+        .btn-download:disabled {
+            background: rgba(255, 255, 255, 0.2);
+            color: rgba(255, 255, 255, 0.5);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-download span {
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Success Message */
+        .success-message {
+            display: none;
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(0, 255, 0, 0.1);
+            border: 1px solid rgba(0, 255, 0, 0.3);
+            border-radius: 8px;
+            color: #6bff6b;
+            text-align: center;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        .success-message.show {
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 30px 20px;
+            }
+
+            h1 {
+                font-size: 1.5em;
+            }
+
+            .video-thumbnail {
+                height: 200px;
+            }
+
+            .quality-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .video-meta {
+                grid-template-columns: 1fr;
+            }
+
+            .search-result-item {
+                flex-direction: column;
+            }
+
+            .result-thumbnail {
+                width: 100%;
+                height: 180px;
+            }
+        }
+
+        /* Smooth scrolling */
+        html {
+            scroll-behavior: smooth;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <svg class="youtube-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white">
+                <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+            </svg>
+            <h1>YouTube Downloader</h1>
+            <p class="subtitle">Cari dan download video YouTube dengan mudah!</p>
+        </div>
+
+        <!-- Tab Switching -->
+        <div class="tab-container">
+            <button class="tab-btn active" data-tab="download">
+                Download
+            </button>
+            <button class="tab-btn" data-tab="search">
+                Search
+            </button>
+        </div>
+
+        <div class="input-group">
+            <label for="youtube-input" id="input-label">URL Video YouTube</label>
+            <div class="input-wrapper">
+                <input 
+                    type="text" 
+                    id="youtube-input" 
+                    placeholder="Paste link YouTube disini..."
+                    autocomplete="off"
+                >
+                <button class="search-btn" id="search-btn" style="display: none;">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                        <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="action-buttons">
+                <button class="action-btn" id="process-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                        <path d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2z"/>
+                    </svg>
+                    <span id="process-btn-text">Process Video</span>
+                </button>
+                <button class="action-btn hidden" id="search-action-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                        <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                    </svg>
+                    <span>Search Video</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="error" id="error-message"></div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p id="loading-text">Memuat informasi video...</p>
+        </div>
+
+        <!-- Search Results -->
+        <div class="search-results" id="search-results">
+            <div class="results-header">
+                <span>Hasil Pencarian</span>
+                <span class="results-count" id="results-count"></span>
+            </div>
+            <div class="results-grid" id="results-grid">
+                <!-- Search results will be populated here -->
+            </div>
+        </div>
+
+        <!-- Video Preview Card -->
+        <div class="video-preview" id="video-preview">
+            <img id="video-thumbnail" class="video-thumbnail" alt="Video Thumbnail">
+            
+            <div class="video-details">
+                <h2 class="video-title" id="video-title">Video Title</h2>
+                
+                <div class="video-meta">
+                    <div class="meta-item">
+                        <svg class="meta-icon" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"/>
+                        </svg>
+                        <span id="video-channel">Channel Name</span>
+                    </div>
+                    <div class="meta-item">
+                        <svg class="meta-icon" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"/>
+                        </svg>
+                        <span id="video-duration">0:00</span>
+                    </div>
+                    <div class="meta-item">
+                        <svg class="meta-icon" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/>
+                            <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z"/>
+                        </svg>
+                        <span id="video-views">0 views</span>
+                    </div>
+                    <div class="meta-item">
+                        <svg class="meta-icon" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z"/>
+                        </svg>
+                        <span id="video-date">Date</span>
+                    </div>
+                </div>
+
+                <div class="download-section">
+                    <h3 class="section-title">Pilih Kualitas Download</h3>
+                    
+                    <div class="quality-grid" id="quality-options">
+                        <!-- Will be populated dynamically -->
+                    </div>
+
+                    <button class="btn-download" id="download-btn">
+                        <span>Download Video</span>
+                    </button>
+
+                    <div class="success-message" id="success-message"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const urlInput = document.getElementById('youtube-input');
+        const inputLabel = document.getElementById('input-label');
+        const searchBtn = document.getElementById('search-btn');
+        const processBtn = document.getElementById('process-btn');
+        const processBtnText = document.getElementById('process-btn-text');
+        const searchActionBtn = document.getElementById('search-action-btn');
+        const loading = document.getElementById('loading');
+        const loadingText = document.getElementById('loading-text');
+        const videoPreview = document.getElementById('video-preview');
+        const searchResults = document.getElementById('search-results');
+        const resultsGrid = document.getElementById('results-grid');
+        const resultsCount = document.getElementById('results-count');
+        const errorMessage = document.getElementById('error-message');
+        const downloadBtn = document.getElementById('download-btn');
+        const successMessage = document.getElementById('success-message');
+        const qualityOptions = document.getElementById('quality-options');
+
+        let currentVideoData = null;
+        let selectedQuality = null;
+        let selectedType = null;
+        let currentMode = 'download'; // 'download' or 'search'
+
+        // Tab switching
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tab = btn.dataset.tab;
+                switchTab(tab);
+            });
+        });
+
+        function switchTab(tab) {
+            currentMode = tab;
+            
+            // Update active tab
+            tabBtns.forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tab === tab);
+            });
+
+            // Update UI based on mode
+            if (tab === 'search') {
+                inputLabel.textContent = 'Cari Video YouTube';
+                urlInput.placeholder = 'Cari video, channel, atau topik...';
+                processBtn.classList.add('hidden');
+                searchActionBtn.classList.remove('hidden');
+                videoPreview.classList.remove('show');
+                urlInput.value = '';
+            } else {
+                inputLabel.textContent = 'URL Video YouTube';
+                urlInput.placeholder = 'Paste link YouTube disini...';
+                processBtn.classList.remove('hidden');
+                searchActionBtn.classList.add('hidden');
+                searchResults.classList.remove('show');
+                urlInput.value = '';
+            }
+
+            hideError();
+            hideSuccess();
+        }
+
+        // Process button click
+        processBtn.addEventListener('click', () => {
+            const url = urlInput.value.trim();
+            if (!url) {
+                showError('Masukkan URL YouTube terlebih dahulu!');
+                return;
+            }
+            if (!isValidYouTubeUrl(url)) {
+                showError('URL YouTube tidak valid!');
+                return;
+            }
+            processVideo(url);
+        });
+
+        // Search action button click
+        searchActionBtn.addEventListener('click', () => {
+            const query = urlInput.value.trim();
+            if (!query) {
+                showError('Masukkan keyword pencarian!');
+                return;
+            }
+            performSearch(query);
+        });
+
+        // Enter key handling
+        urlInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                if (currentMode === 'search') {
+                    const query = urlInput.value.trim();
+                    if (query) {
+                        performSearch(query);
+                    }
+                } else {
+                    const url = urlInput.value.trim();
+                    if (isValidYouTubeUrl(url)) {
+                        processVideo(url);
+                    }
+                }
+            }
+        });
+
+        async function performSearch(query) {
+            hideError();
+            hideSuccess();
+            videoPreview.classList.remove('show');
+            searchResults.classList.remove('show');
+            loading.classList.add('show');
+            loadingText.textContent = 'Mencari video...';
+
+            try {
+                const response = await fetch('/api/search', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: query })
+                });
+
+                const result = await response.json();
+
+                if (!response.ok || !result.success) {
+                    throw new Error(result.error || 'Gagal mencari video');
+                }
+
+                displaySearchResults(result.data);
+                loading.classList.remove('show');
+
+            } catch (error) {
+                loading.classList.remove('show');
+                console.error('Search error:', error);
+                showError(error.message || 'Terjadi kesalahan saat mencari video');
+            }
+        }
+
+        function displaySearchResults(results) {
+            resultsGrid.innerHTML = '';
+
+            if (!results || results.length === 0) {
+                showError('Tidak ada hasil yang ditemukan');
+                return;
+            }
+
+            resultsCount.textContent = `(${results.length} video)`;
+            searchResults.classList.add('show');
+
+            results.forEach(video => {
+                const item = createSearchResultItem(video);
+                resultsGrid.appendChild(item);
+            });
+
+            // Scroll to results
+            setTimeout(() => {
+                searchResults.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 100);
+        }
+
+        function createSearchResultItem(video) {
+            const item = document.createElement('div');
+            item.className = 'search-result-item';
+            
+            const thumbnailUrl = video.thumbnail || video.image;
+            const duration = video.timestamp || video.duration?.timestamp || '';
+            const views = formatViews(video.views);
+            
+            item.innerHTML = `
+                <div class="result-thumbnail-wrapper">
+                    <img src="${thumbnailUrl}" alt="${video.title}" class="result-thumbnail">
+                    ${duration ? `<div class="result-duration">${duration}</div>` : ''}
+                </div>
+                <div class="result-info">
+                    <div class="result-title">${video.title}</div>
+                    <div class="result-meta">
+                        <span>
+                            <svg class="meta-icon" fill="currentColor" viewBox="0 0 20 20" style="width: 12px; height: 12px;">
+                                <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"/>
+                            </svg>
+                            ${video.author?.name || 'Unknown'}
+                        </span>
+                        ${views ? `<span>• ${views}</span>` : ''}
+                        ${video.ago ? `<span>• ${video.ago}</span>` : ''}
+                    </div>
+                </div>
+            `;
+
+            item.addEventListener('click', () => {
+                // Switch to download mode and process this video
+                const videoUrl = video.url;
+                urlInput.value = videoUrl;
+                switchTab('download');
+                processVideo(videoUrl);
+            });
+
+            return item;
+        }
+
+        // Auto-process when URL is pasted in download mode
+        urlInput.addEventListener('paste', async (e) => {
+            setTimeout(() => {
+                if (currentMode === 'download') {
+                    const url = urlInput.value.trim();
+                    if (isValidYouTubeUrl(url)) {
+                        processVideo(url);
+                    }
+                }
+            }, 100);
+        });
+
+        async function processVideo(url) {
+            hideError();
+            hideSuccess();
+            videoPreview.classList.remove('show');
+            searchResults.classList.remove('show');
+            loading.classList.add('show');
+            loadingText.textContent = 'Memuat informasi video...';
+
+            try {
+                // Get video metadata
+                const response = await fetch('/api/yt', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        url: url, 
+                        type: 'metadata'
+                    })
+                });
+
+                const result = await response.json();
+
+                if (!response.ok || !result.success) {
+                    throw new Error(result.error || 'Gagal memuat video');
+                }
+
+                currentVideoData = result.data;
+                displayVideoPreview(currentVideoData);
+
+                loading.classList.remove('show');
+                videoPreview.classList.add('show');
+
+                // Scroll to preview smoothly
+                setTimeout(() => {
+                    videoPreview.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }, 100);
+
+            } catch (error) {
+                loading.classList.remove('show');
+                console.error('Process error:', error);
+                showError(error.message || 'Terjadi kesalahan saat memuat video');
+            }
+        }
+
+        function displayVideoPreview(data) {
+            // Set thumbnail
+            const thumbnail = data.thumbnails?.find(t => t.quality === 'high' || t.quality === 'maxres') || data.thumbnails?.[0];
+            document.getElementById('video-thumbnail').src = thumbnail?.url || '';
+
+            // Set video info
+            document.getElementById('video-title').textContent = data.title || 'Unknown Title';
+            document.getElementById('video-channel').textContent = data.channel_title || 'Unknown Channel';
+            document.getElementById('video-duration').textContent = formatDuration(data.duration) || '0:00';
+            document.getElementById('video-views').textContent = formatViews(data.statistics?.view) || '0 views';
+            document.getElementById('video-date').textContent = formatDate(data.published_date) || 'Unknown';
+
+            // Create quality options
+            createQualityOptions();
+        }
+
+        function createQualityOptions() {
+            qualityOptions.innerHTML = '';
+
+            // Audio option
+            const audioBtn = createQualityButton('Audio MP3', 'audio', '128kbps');
+            qualityOptions.appendChild(audioBtn);
+
+            // Video options
+            const videoQualities = [
+                { label: '360p', value: 360 },
+                { label: '480p', value: 480 },
+                { label: '720p HD', value: 720 },
+                { label: '1080p FHD', value: 1080 }
+            ];
+
+            videoQualities.forEach(q => {
+                const btn = createQualityButton(q.label, 'video', q.value);
+                qualityOptions.appendChild(btn);
+            });
+
+            // Select 720p by default
+            const defaultBtn = qualityOptions.querySelector('[data-quality="720"]');
+            if (defaultBtn) {
+                defaultBtn.click();
+            }
+        }
+
+        function createQualityButton(label, type, quality) {
+            const btn = document.createElement('button');
+            btn.className = 'quality-btn';
+            btn.textContent = label;
+            btn.dataset.type = type;
+            btn.dataset.quality = quality;
+            
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.quality-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                selectedType = type;
+                selectedQuality = quality;
+                
+                // Update download button text
+                downloadBtn.innerHTML = `<span>Download ${type === 'audio' ? 'Audio' : 'Video'} (${label})</span>`;
+            });
+
+            return btn;
+        }
+
+        // Download functionality
+        downloadBtn.addEventListener('click', async () => {
+            if (!selectedQuality || !selectedType) {
+                showError('Pilih kualitas download terlebih dahulu!');
+                return;
+            }
+
+            hideError();
+            hideSuccess();
+            downloadBtn.disabled = true;
+            downloadBtn.innerHTML = '<span>Memproses...</span>';
+
+            try {
+                const url = urlInput.value.trim();
+                
+                const response = await fetch('/api/yt', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        url: url, 
+                        quality: selectedQuality,
+                        type: selectedType
+                    })
+                });
+
+                const result = await response.json();
+
+                if (!response.ok || !result.success) {
+                    throw new Error(result.error || 'Gagal mendownload video');
+                }
+
+                const data = result.data;
+
+                if (data.download && data.download.url) {
+                    const downloadUrl = data.download.url;
+                    const filename = data.download.filename || `download.${selectedType === 'audio' ? 'mp3' : 'mp4'}`;
+                    
+                    // Use download API endpoint
+                    const downloadLink = `/api/download?url=${encodeURIComponent(downloadUrl)}&filename=${encodeURIComponent(filename)}`;
+                    
+                    // Create link and trigger download
+                    const a = document.createElement('a');
+                    a.href = downloadLink;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    
+                    showSuccess('✓ Download dimulai! File akan tersimpan di folder Downloads Anda.');
+                }
+
+            } catch (error) {
+                console.error('Download error:', error);
+                showError(error.message || 'Terjadi kesalahan saat mendownload');
+            } finally {
+                downloadBtn.disabled = false;
+                const qualityLabel = document.querySelector('.quality-btn.active')?.textContent || '';
+                downloadBtn.innerHTML = `<span>Download ${selectedType === 'audio' ? 'Audio' : 'Video'} (${qualityLabel})</span>`;
+            }
+        });
+
+        // Helper functions
+        function isValidYouTubeUrl(url) {
+            const pattern = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+$/;
+            return pattern.test(url);
+        }
+
+        function formatDuration(seconds) {
+            if (!seconds) return '0:00';
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function formatViews(views) {
+            if (!views) return '0 views';
+            const num = parseInt(views);
+            if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M views`;
+            if (num >= 1000) return `${(num / 1000).toFixed(1)}K views`;
+            return `${num} views`;
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return 'Unknown';
+            const date = new Date(dateString);
+            const options = { year: 'numeric', month: 'short', day: 'numeric' };
+            return date.toLocaleDateString('id-ID', options);
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.add('show');
+        }
+
+        function hideError() {
+            errorMessage.classList.remove('show');
+        }
+
+        function showSuccess(message) {
+            successMessage.textContent = message;
+            successMessage.classList.add('show');
+            setTimeout(() => hideSuccess(), 5000);
+        }
+
+        function hideSuccess() {
+            successMessage.classList.remove('show');
+        }
+
+        // Clear error when typing
+        urlInput.addEventListener('input', hideError);
+    </script>
+</body>
+</html>
