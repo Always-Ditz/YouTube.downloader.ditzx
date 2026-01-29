@@ -52,13 +52,22 @@ export default async function handler(req, res) {
       const audioQuality = quality || 128;
       console.log(`Downloading audio: ${url} with quality ${audioQuality}kbps`);
       
-      result = await yt.ytmp3(url, audioQuality);
+      try {
+        result = await yt.ytmp3(url, audioQuality);
+      } catch (primaryError) {
+        console.log('Primary API failed, trying alternative API...');
+        try {
+          result = await yt.apimp3(url, audioQuality);
+        } catch (altError) {
+          throw new Error('Both primary and alternative API failed for audio download');
+        }
+      }
       
       // Check if result is valid for download
-      if (!result || !result.status) {
+      if (!result || !result.status || (result.download && result.download.status === false)) {
         return res.status(500).json({
           success: false,
-          error: 'Failed to process YouTube video',
+          error: 'Failed to process audio download',
           details: result
         });
       }
@@ -68,13 +77,22 @@ export default async function handler(req, res) {
       const videoQuality = quality || 720;
       console.log(`Downloading video: ${url} with quality ${videoQuality}p`);
       
-      result = await yt.ytmp4(url, videoQuality);
+      try {
+        result = await yt.ytmp4(url, videoQuality);
+      } catch (primaryError) {
+        console.log('Primary API failed, trying alternative API...');
+        try {
+          result = await yt.apimp4(url, videoQuality);
+        } catch (altError) {
+          throw new Error('Both primary and alternative API failed for video download');
+        }
+      }
       
       // Check if result is valid for download
-      if (!result || !result.status) {
+      if (!result || !result.status || (result.download && result.download.status === false)) {
         return res.status(500).json({
           success: false,
-          error: 'Failed to process YouTube video',
+          error: 'Failed to process video download',
           details: result
         });
       }
@@ -99,13 +117,22 @@ export default async function handler(req, res) {
       const videoQuality = quality || 720;
       console.log(`Downloading video (default): ${url} with quality ${videoQuality}p`);
       
-      result = await yt.ytmp4(url, videoQuality);
+      try {
+        result = await yt.ytmp4(url, videoQuality);
+      } catch (primaryError) {
+        console.log('Primary API failed, trying alternative API...');
+        try {
+          result = await yt.apimp4(url, videoQuality);
+        } catch (altError) {
+          throw new Error('Both primary and alternative API failed for video download');
+        }
+      }
       
       // Check if result is valid for download
-      if (!result || !result.status) {
+      if (!result || !result.status || (result.download && result.download.status === false)) {
         return res.status(500).json({
           success: false,
-          error: 'Failed to process YouTube video',
+          error: 'Failed to process video download',
           details: result
         });
       }
@@ -127,4 +154,4 @@ export default async function handler(req, res) {
       details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
-        }
+                                        }
