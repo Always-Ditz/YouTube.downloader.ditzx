@@ -8,7 +8,10 @@
     "deploy": "vercel --prod"
   },
   "dependencies": {
-    "@vreden/youtube_scraper": "^1.0.0"
+    "@vreden/youtube_scraper": "^1.0.0",
+    "axios": "^1.6.7",
+    "axios-cookiejar-support": "^5.0.2",
+    "tough-cookie": "^4.1.3"
   },
   "devDependencies": {
     "vercel": "^33.0.0"
