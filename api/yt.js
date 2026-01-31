@@ -1,35 +1,113 @@
 import yt from '@vreden/youtube_scraper';
+import crypto from 'crypto';
+import axios from 'axios';
+import { wrapper } from 'axios-cookiejar-support';
+import { CookieJar } from 'tough-cookie';
 
-// Helper function untuk download via external API
-async function downloadWithExternalAPI(type, url) {
-  const apiType = type === 'audio' ? 'audio' : 'merge';
+const BASE_URL = 'https://youtubedl.siputzx.my.id';
+
+// Helper function untuk solve Proof of Work
+function solvePow(challenge, difficulty) {
+  let nonce = 0;
+  const prefix = '0'.repeat(difficulty);
+  console.log(`[POW] Solving complexity ${difficulty}...`);
+  const start = Date.now();
   
-  let attempts = 0;
-  const maxAttempts = 30; // Maksimal 30 attempts (60 detik)
-  
-  while (attempts < maxAttempts) {
-    try {
-      const res = await fetch(`https://youtubedl.siputzx.my.id/download?type=${apiType}&url=${url}`, {
-        headers: { "Accept": "application/json, text/plain, */*" }
-      });
+  while (true) {
+    const hash = crypto.createHash('sha256')
+      .update(challenge + nonce.toString())
+      .digest('hex');
       
-      const data = await res.json();
-      
-      if (data.status === "completed") {
-        return "https://youtubedl.siputzx.my.id" + data.fileUrl;
-      }
-      
-      // Wait 2 seconds before retry
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      attempts++;
-      
-    } catch (error) {
-      console.error('Download API error:', error);
-      throw new Error('Failed to download from external API');
+    if (hash.startsWith(prefix)) {
+      console.log(`[POW] Done in ${Date.now() - start}ms`);
+      return nonce.toString();
+    }
+    nonce++;
+    
+    // Safety break untuk mencegah infinite loop (optional)
+    if (nonce > 10000000) {
+      throw new Error('PoW solving timeout');
     }
   }
-  
-  throw new Error('Download timeout - exceeded maximum attempts');
+}
+
+// Helper function untuk download via external API dengan PoW
+async function downloadWithExternalAPI(type, url, apikey = null) {
+  const jar = new CookieJar();
+  const client = wrapper(axios.create({ 
+    jar, 
+    withCredentials: true,
+    headers: { 
+      "Accept": "application/json, text/plain, */*"
+    }
+  }));
+
+  try {
+    const downloadType = type === 'audio' || type === 'mp3' ? 'audio' : 'merge';
+
+    // Step 1: Authentication (PoW atau Premium Key)
+    if (apikey) {
+      console.log(`[AUTH] Using Premium API Key`);
+    } else {
+      console.log(`[AUTH] Requesting PoW Challenge...`);
+      
+      // Request PoW challenge
+      const { data: challengeData } = await client.post(
+        `${BASE_URL}/akumaudownload`, 
+        { url, type: downloadType }
+      );
+      
+      const { challenge, difficulty } = challengeData;
+      
+      // Solve PoW
+      const nonce = solvePow(challenge, difficulty);
+      
+      console.log(`[AUTH] Verifying Session...`);
+      
+      // Verify session dengan nonce
+      await client.post(
+        `${BASE_URL}/cekpunyaku`, 
+        { url, type: downloadType, nonce }
+      );
+    }
+
+    // Step 2: Initialize dan poll download status
+    console.log(`[TASK] Initializing Download...`);
+    
+    let attempts = 0;
+    const maxAttempts = 30; // Maksimal 30 attempts (90 detik dengan interval 3 detik)
+    
+    while (attempts < maxAttempts) {
+      const { data } = await client.get(`${BASE_URL}/download`, { 
+        params: { url, type: downloadType, apikey } 
+      });
+      
+      // Download completed
+      if (data.status === 'completed') {
+        console.log(`[TASK] Status: COMPLETED`);
+        return BASE_URL + data.fileUrl;
+      }
+      
+      // Download failed
+      if (data.status === 'failed') {
+        console.log(`[TASK] Status: FAILED | Error: ${data.error}`);
+        throw new Error(data.error || 'Download failed');
+      }
+      
+      // Still processing
+      console.log(`[LOOP] Status: ${data.status} | Progress: ${data.progress || '0%'}`);
+      
+      // Wait 3 seconds before next poll
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      attempts++;
+    }
+    
+    throw new Error('Download timeout - exceeded maximum attempts');
+    
+  } catch (error) {
+    console.error(`[ERROR]`, error.response?.data || error.message);
+    throw error;
+  }
 }
 
 export default async function handler(req, res) {
@@ -57,7 +135,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { url, quality, type } = req.body;
+    const { url, quality, type, apikey } = req.body;
 
     // Validate URL
     if (!url) {
@@ -68,7 +146,7 @@ export default async function handler(req, res) {
     }
 
     // Validate YouTube URL
-    const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+$/;
+    const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be|music\.youtube\.com)\/.+$/;
     if (!youtubeRegex.test(url)) {
       return res.status(400).json({
         success: false,
@@ -82,7 +160,7 @@ export default async function handler(req, res) {
     let metadata;
     try {
       metadata = await yt.metadata(url);
-      console.log('Metadata fetched successfully:', metadata);
+      console.log('Metadata fetched successfully');
     } catch (metaError) {
       console.error('Metadata fetch failed:', metaError);
       return res.status(500).json({
@@ -92,26 +170,19 @@ export default async function handler(req, res) {
       });
     }
 
-    // If only metadata is requested - FIXED: Return flat structure
+    // If only metadata is requested - return flat structure
     if (type === 'metadata') {
       return res.status(200).json({
         success: true,
-        data: metadata  // ← Flat structure, langsung return metadata dari library
+        data: metadata
       });
     }
 
-    // STEP 2: Download using external API
+    // STEP 2: Download using external API with PoW
     let downloadUrl;
     try {
-      if (type === 'audio' || type === 'mp3') {
-        console.log('Downloading audio via external API...');
-        downloadUrl = await downloadWithExternalAPI('audio', url);
-      } else {
-        // Default to video
-        console.log('Downloading video via external API...');
-        downloadUrl = await downloadWithExternalAPI('video', url);
-      }
-      
+      console.log('Starting download with PoW authentication...');
+      downloadUrl = await downloadWithExternalAPI(type, url, apikey);
       console.log('Download completed:', downloadUrl);
       
     } catch (downloadError) {
@@ -127,16 +198,15 @@ export default async function handler(req, res) {
     }
 
     // Return successful response with metadata + download URL
-    // FIXED: Flatten the response structure
     return res.status(200).json({
       success: true,
       data: {
-        ...metadata,  // Spread all metadata properties (title, author, duration, views, etc)
+        ...metadata,  // Spread all metadata properties
         download: {
           status: true,
           url: downloadUrl,
           message: 'Download ready',
-          type: type === 'audio' ? 'audio' : 'video'
+          type: type === 'audio' || type === 'mp3' ? 'audio' : 'video'
         }
       }
     });
